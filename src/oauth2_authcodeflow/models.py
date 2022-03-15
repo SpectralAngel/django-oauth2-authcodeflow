@@ -1,6 +1,7 @@
 from datetime import (
     datetime,
     timedelta,
+    timezone
 )
 from logging import warning
 
@@ -9,7 +10,7 @@ from django.db import models
 from django.db.utils import DatabaseError
 from django.utils.functional import cached_property
 from jose import jwt
-from pytz import utc
+
 
 from .conf import settings
 
@@ -33,8 +34,8 @@ class BlacklistedToken(models.Model):
     def blacklist(cls, token: str):
         claims = jwt.get_unverified_claims(token)
         username = settings.OIDC_DJANGO_USERNAME_FUNC(claims)
-        now = datetime.now(tz=utc)
-        expires_at = datetime.fromtimestamp(claims['exp'], tz=utc) if 'exp' in claims else now + timedelta(settings.OIDC_BLACKLIST_TOKEN_TIMEOUT_SECONDS)
+        now = datetime.now(timezone.utc)
+        expires_at = datetime.fromtimestamp(claims['exp'], tz=timezone.utc) if 'exp' in claims else now + timedelta(settings.OIDC_BLACKLIST_TOKEN_TIMEOUT_SECONDS)
         try:
             return cls.objects.create(username=username, token=token, expires_at=expires_at, blacklisted_at=now)
         except DatabaseError as e:
@@ -49,7 +50,7 @@ class BlacklistedToken(models.Model):
 
     @classmethod
     def purge(cls):
-        now = datetime.now(tz=utc)
+        now = datetime.now(timezone.utc)
         nb, _ = cls.objects.filter(expires_at__lte=now).delete()
         return nb
 
